@@ -10,3 +10,6 @@ wheels/
 .venv
 
 .env
+.neon
+.env.local
+node_modules/
