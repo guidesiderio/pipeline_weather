@@ -89,6 +89,9 @@ gastar uma chamada da API nem escrever no banco:
 uv run pipeline-weather --sem-extracao --sem-carga
 ```
 
+O diretório `data/` não é versionado, então em um clone novo a primeira execução precisa
+incluir a extração. O `--sem-extracao` só funciona depois que existir um JSON salvo.
+
 Cada etapa também roda isolada:
 
 ```bash
@@ -155,7 +158,7 @@ pipeline_weather/
 ├── config/
 │   ├── .env              # API_KEY e, opcionalmente, DATABASE_URL (ignorado pelo git)
 │   └── .env.exemple      # Modelo com placeholders
-├── data/
+├── data/                 # Saída da extração (ignorado pelo git)
 │   └── weather_piaui.json
 ├── src/pipeline_weather/
 │   ├── main.py           # Orquestrador e CLI

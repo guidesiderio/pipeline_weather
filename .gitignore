@@ -13,3 +13,6 @@ wheels/
 .neon
 .env.local
 node_modules/
+
+# Artefatos gerados pelo pipeline
+data/
