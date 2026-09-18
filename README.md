@@ -104,7 +104,7 @@ uv run python -m pipeline_weather.load_data
 
 O pipeline também roda como uma DAG do Apache Airflow, em containers, sem depender do `uv`
 instalado na máquina. O stack fica em `airflow/` e parte da imagem oficial
-`apache/airflow:3.3.2`.
+`apache/airflow:3.3.2-python3.12`.
 
 Pré-requisitos: Docker em execução, `config/.env` com a `API_KEY` e `.env.local` com a
 `DATABASE_URL`, os mesmos arquivos que a execução local já usa. Eles entram nos containers
@@ -115,14 +115,30 @@ cd airflow
 docker compose up -d
 ```
 
-A interface fica em http://localhost:8080, com usuário e senha `airflow`. A DAG
+O primeiro `up -d` constrói a imagem local a partir do `Dockerfile`, o que leva vários
+minutos. As próximas subidas reaproveitam a imagem e são rápidas.
+
+A interface fica em http://127.0.0.1:8080, com usuário e senha `airflow`. A DAG
 `clima_teresina` nasce pausada, como é o padrão do Airflow: despause na interface para o
 agendamento horário passar a valer.
+
+`airflow/.env` é opcional: sem ele valem os defaults do compose (`AIRFLOW_UID`, o usuário e
+a senha `airflow`/`airflow` da interface e o segredo de JWT). Para sobrepor algum desses
+valores, crie `airflow/.env` com `AIRFLOW_UID`, `_AIRFLOW_WWW_USER_USERNAME`,
+`_AIRFLOW_WWW_USER_PASSWORD` e/ou `AIRFLOW__API_AUTH__JWT_SECRET`. Esse arquivo é ignorado
+pelo git.
 
 Para uma execução avulsa, sem esperar o agendamento nem despausar:
 
 ```bash
 docker compose exec airflow-scheduler airflow dags test clima_teresina
+```
+
+O serviço `airflow-cli` existe para comandos pontuais da CLI do Airflow. Ele fica sob o
+profile `debug` e não sobe com `docker compose up`:
+
+```bash
+docker compose --profile debug run --rm airflow-cli airflow dags list-import-errors
 ```
 
 Para derrubar:
@@ -207,13 +223,18 @@ pipeline_weather/
 ├── airflow/
 │   ├── dags/
 │   │   └── dag_clima_teresina.py
+│   ├── .env          # Sobrepõe defaults do compose (ignorado pelo git)
+│   ├── logs/         # Logs das tasks, gerados pelo stack (ignorado pelo git)
+│   ├── plugins/      # Plugins do Airflow, vazio neste projeto (ignorado pelo git)
+│   ├── config/       # Config interna do Airflow, gerada pelo stack (ignorado pelo git)
 │   ├── Dockerfile
 │   └── docker-compose.yaml
 ├── config/
 │   ├── .env              # API_KEY e, opcionalmente, DATABASE_URL (ignorado pelo git)
 │   └── .env.exemple      # Modelo com placeholders
 ├── data/                 # Saída da extração e das execuções da DAG (ignorado pelo git)
-│   └── weather_piaui.json
+│   ├── weather_piaui.json
+│   └── execucoes/<run_id>/  # Bruto e transformado de cada execução da DAG
 ├── docs/superpowers/     # Spec de design e plano de implementação
 ├── src/pipeline_weather/
 │   ├── main.py           # Orquestrador e CLI
@@ -260,3 +281,12 @@ SQL-over-HTTP do Neon, na porta 443.
 No plano gratuito o compute hiberna após alguns minutos de inatividade. A engine é criada
 com `pool_pre_ping=True`, que descarta conexões mortas do pool e reabre, então a primeira
 execução após a hibernação pode demorar alguns segundos a mais em vez de falhar.
+
+**`.env.local` virou um diretório**
+
+O compose do Airflow monta `.env.local` como arquivo único. Antes do primeiro
+`docker compose up`, confirme que `.env.local` existe como arquivo na raiz do repositório:
+se ele não existir, o Docker cria um diretório vazio com esse nome no lugar do bind mount, e
+o container passa a enxergar um diretório onde esperava um arquivo. Se isso já aconteceu,
+apague o diretório `.env.local` criado e gere o arquivo de novo com `neon env pull` antes de
+subir o stack outra vez.

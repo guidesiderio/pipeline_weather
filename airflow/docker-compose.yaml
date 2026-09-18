@@ -1,8 +1,11 @@
 # Derivado do compose oficial do Airflow 3.3.2, com CeleryExecutor trocado por
 # LocalExecutor. Isso dispensa redis, airflow-worker e flower. O triggerer
 # tambem sai: serve a operadores deferiveis, que esta DAG nao usa.
-# restart: "no" em todos: o stack sobe sob demanda e e derrubado depois, entao
-# nao deve voltar sozinho quando o Docker Desktop iniciar.
+# restart: "no" esta explicito nos servicos de longa duracao (postgres e os
+# tres processos do Airflow); airflow-init e airflow-cli herdam o mesmo "no"
+# do default do Compose para a chave ausente. O stack sobe sob demanda e e
+# derrubado depois, entao nao deve voltar sozinho quando o Docker Desktop
+# iniciar.
 x-airflow-common: &airflow-common
   build: .
   image: pipeline-weather/airflow:3.3.2
@@ -25,7 +28,7 @@ x-airflow-common: &airflow-common
     - ./plugins:/opt/airflow/plugins
     # O repositorio, montado de forma que RAIZ_PROJETO caia em /opt/airflow/projeto.
     - ../src:/opt/airflow/projeto/src:ro
-    - ../config/.env:/opt/airflow/projeto/config/.env:ro
+    - ../config:/opt/airflow/projeto/config:ro
     - ../.env.local:/opt/airflow/projeto/.env.local:ro
     - ../data:/opt/airflow/projeto/data
   user: "${AIRFLOW_UID:-50000}:0"
@@ -71,7 +74,7 @@ services:
     <<: *airflow-common
     command: api-server
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
       interval: 30s
