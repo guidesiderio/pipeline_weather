@@ -100,6 +100,55 @@ uv run python -m pipeline_weather.transform_data
 uv run python -m pipeline_weather.load_data
 ```
 
+## Orquestração com Airflow
+
+O pipeline também roda como uma DAG do Apache Airflow, em containers, sem depender do `uv`
+instalado na máquina. O stack fica em `airflow/` e parte da imagem oficial
+`apache/airflow:3.3.2`.
+
+Pré-requisitos: Docker em execução, `config/.env` com a `API_KEY` e `.env.local` com a
+`DATABASE_URL`, os mesmos arquivos que a execução local já usa. Eles entram nos containers
+montados somente leitura, então nenhum segredo vai para a imagem.
+
+```bash
+cd airflow
+docker compose up -d
+```
+
+A interface fica em http://localhost:8080, com usuário e senha `airflow`. A DAG
+`clima_teresina` nasce pausada, como é o padrão do Airflow: despause na interface para o
+agendamento horário passar a valer.
+
+Para uma execução avulsa, sem esperar o agendamento nem despausar:
+
+```bash
+docker compose exec airflow-scheduler airflow dags test clima_teresina
+```
+
+Para derrubar:
+
+```bash
+docker compose down        # preserva o histórico das execuções
+docker compose down -v     # descarta também o metadata DB do Airflow
+```
+
+| Task | Papel | Tentativas |
+|---|---|---|
+| `extrair` | Consulta a API e grava o JSON bruto | 3, porque depende de rede |
+| `transformar` | Normaliza o JSON e grava o intermediário | 1, porque falha aqui é dado malformado |
+| `carregar` | Insere em `clima_atual` | 3, porque o compute do Neon hiberna |
+
+O dado passa de uma task para a seguinte por arquivo, em `data/execucoes/<run_id>/`, um
+diretório por execução. Isso mantém cada execução inspecionável depois do fato e impede que
+uma nova tentativa da carga leia o intermediário de outra execução.
+
+O Postgres que sobe no compose guarda apenas o metadata do Airflow. Os dados do clima
+continuam indo para o Neon, então os containers precisam de saída para a internet.
+
+Como a carga é idempotente, uma execução poucos minutos depois de outra reporta zero linhas
+inseridas. É o comportamento esperado, não falha: a API só publica leitura nova a cada dez
+minutos.
+
 ## Transformação
 
 A resposta da API é um JSON aninhado. A transformação aplica quatro operações:
@@ -155,11 +204,17 @@ A DDL é declarada explicitamente em vez de inferida pelo `to_sql` do pandas, po
 
 ```
 pipeline_weather/
+├── airflow/
+│   ├── dags/
+│   │   └── dag_clima_teresina.py
+│   ├── Dockerfile
+│   └── docker-compose.yaml
 ├── config/
 │   ├── .env              # API_KEY e, opcionalmente, DATABASE_URL (ignorado pelo git)
 │   └── .env.exemple      # Modelo com placeholders
-├── data/                 # Saída da extração (ignorado pelo git)
+├── data/                 # Saída da extração e das execuções da DAG (ignorado pelo git)
 │   └── weather_piaui.json
+├── docs/superpowers/     # Spec de design e plano de implementação
 ├── src/pipeline_weather/
 │   ├── main.py           # Orquestrador e CLI
 │   ├── extract_data.py
