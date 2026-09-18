@@ -75,14 +75,6 @@ ORDEM_COLUNAS = [
 
 COLUNAS_EPOCH = ["observado_em", "nascer_do_sol", "por_do_sol"]
 
-# O console do Windows usa cp1252 por padrão; força UTF-8 para preservar os acentos.
-sys.stdout.reconfigure(encoding="utf-8")
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    stream=sys.stdout,
-)
 logger = logging.getLogger(__name__)
 
 
@@ -152,6 +144,15 @@ def transformar(bruto: dict) -> pd.DataFrame:
 
 
 def main() -> None:
+    # O console do Windows usa cp1252 por padrão; força UTF-8 para preservar os acentos.
+    # Fica em main() e não no corpo do módulo: importado pelo Airflow, o stdout da task
+    # não é um TextIOWrapper e não aceita reconfigure.
+    sys.stdout.reconfigure(encoding="utf-8")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+        stream=sys.stdout,
+    )
     try:
         bruto = carregar_json(ARQUIVO_ENTRADA)
     except (FileNotFoundError, json.JSONDecodeError) as erro:

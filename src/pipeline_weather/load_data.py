@@ -82,14 +82,6 @@ INSERIR = text(
     "ON CONFLICT (id_cidade, observado_em) DO NOTHING"
 )
 
-# O console do Windows usa cp1252 por padrão; força UTF-8 para preservar os acentos.
-sys.stdout.reconfigure(encoding="utf-8")
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    stream=sys.stdout,
-)
 logger = logging.getLogger(__name__)
 
 
@@ -157,6 +149,15 @@ def carregar(df: pd.DataFrame, engine: Engine) -> int:
 
 
 def main() -> None:
+    # O console do Windows usa cp1252 por padrão; força UTF-8 para preservar os acentos.
+    # Fica em main() e não no corpo do módulo: importado pelo Airflow, o stdout da task
+    # não é um TextIOWrapper e não aceita reconfigure.
+    sys.stdout.reconfigure(encoding="utf-8")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+        stream=sys.stdout,
+    )
     try:
         url = carregar_url_banco()
         bruto = carregar_json(ARQUIVO_ENTRADA)

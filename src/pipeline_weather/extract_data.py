@@ -18,14 +18,6 @@ URL_API = "https://api.openweathermap.org/data/2.5/weather"
 CIDADE = "Teresina,PI,BR"
 TIMEOUT_SEGUNDOS = 10
 
-# O console do Windows usa cp1252 por padrão; força UTF-8 para preservar os acentos.
-sys.stdout.reconfigure(encoding="utf-8")
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(message)s",
-    stream=sys.stdout,
-)
 logger = logging.getLogger(__name__)
 
 
@@ -72,6 +64,15 @@ def salvar_json(dados: dict, caminho: Path) -> None:
 
 
 def main() -> None:
+    # O console do Windows usa cp1252 por padrão; força UTF-8 para preservar os acentos.
+    # Fica em main() e não no corpo do módulo: importado pelo Airflow, o stdout da task
+    # não é um TextIOWrapper e não aceita reconfigure.
+    sys.stdout.reconfigure(encoding="utf-8")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+        stream=sys.stdout,
+    )
     try:
         api_key = carregar_api_key()
         dados = extrair_clima(CIDADE, api_key)
