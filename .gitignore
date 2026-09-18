@@ -16,3 +16,8 @@ node_modules/
 
 # Artefatos gerados pelo pipeline
 data/
+
+# Airflow
+airflow/logs/
+airflow/plugins/
+airflow/config/
