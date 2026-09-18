@@ -99,6 +99,8 @@ As três tasks importam o pacote por módulo (`from pipeline_weather import extr
 
 O dado trafega por arquivo em `data/execucoes/<run_id>/`, um diretório por execução. O XCom transporta apenas os caminhos e a contagem final.
 
+O `run_id` entra sanitizado no nome do diretório. Ele tem a forma `scheduled__2026-09-17T23:00:00+00:00`, e `:` e `+` são recusados pelo NTFS, sistema de arquivos do host por trás do bind mount de `data/`. A DAG substitui por `_` tudo que não seja letra, dígito, ponto, hífen ou sublinhado.
+
 O diretório por execução substitui o nome fixo `data/weather_piaui.json` usado pelo CLI. Isso mantém cada execução inspecionável depois do fato e impede que um retry da carga leia o intermediário de outra execução. As funções do pacote já recebem o caminho como argumento, então isso não exige mudança nelas. Os diretórios acumulam em `data/`, que já está no `.gitignore`.
 
 `pd.read_json` não reconverte `observado_em`, `extraido_em`, `nascer_do_sol` e `por_do_sol`, porque esses nomes não batem com a heurística de colunas de data da função. A task de carga reconverte as quatro com `pd.to_datetime(..., format="ISO8601")` antes de chamar `load_data.carregar`. Sem isso chegariam strings onde `_valor_python` espera `pd.Timestamp`, e `observado_em` compõe a chave primária.
