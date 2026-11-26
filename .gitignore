@@ -21,3 +21,6 @@ data/
 airflow/logs/
 airflow/plugins/
 airflow/config/
+
+# Junction do Claude Code para .agents/skills (recriar por clone)
+.claude/skills
